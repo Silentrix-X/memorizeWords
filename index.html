@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>句子背单词 - 简约手写风格</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div>
+                    <h1 class="title">句子背单词</h1>
+                    <p class="subtitle">每天一句，轻松记忆</p>
+                </div>
+                <button class="btn btn-manage" id="manage-btn">管理句子</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="date-display">
+                <span id="current-date"></span>
+            </div>
+
+            <div class="sentence-card">
+                <div class="sentence-section">
+                    <h2 class="section-title">今日句子</h2>
+                    <div class="sentence-text" id="sentence-text">
+                        <span class="word-placeholder">点击导入按钮添加今日句子</span>
+                    </div>
+                </div>
+
+                <div class="translation-section">
+                    <h2 class="section-title">翻译</h2>
+                    <div class="translation-text" id="translation-text">
+                        <span class="word-placeholder">翻译将显示在这里</span>
+                    </div>
+                </div>
+
+                <div class="word-tooltip" id="word-tooltip">
+                    <div class="tooltip-content">
+                        <div class="tooltip-word" id="tooltip-word"></div>
+                        <div class="tooltip-meaning" id="tooltip-meaning"></div>
+                        <div class="tooltip-loading" id="tooltip-loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dictionary-modal" id="dictionary-modal">
+                <div class="dictionary-modal-overlay" id="dictionary-overlay"></div>
+                <div class="dictionary-modal-content">
+                    <div class="dictionary-header">
+                        <h3 id="dictionary-word"></h3>
+                        <button class="dictionary-close-btn" id="dictionary-close-btn">&times;</button>
+                    </div>
+                    <div class="dictionary-body">
+                        <iframe id="dictionary-iframe" frameborder="0" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+                        <div class="dictionary-loading">加载中...</div>
+                    </div>
+                    <div class="dictionary-footer">
+                        <a id="dictionary-link" target="_blank" class="dictionary-link">查看完整页面</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="import-btn">导入今日句子</button>
+                <button class="btn btn-secondary" id="prev-btn">上一句</button>
+                <button class="btn btn-secondary" id="next-btn">下一句</button>
+            </div>
+
+            <div class="import-modal" id="import-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>导入句子</h2>
+                        <button class="close-btn" id="close-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="sentence-input">英文句子：</label>
+                            <textarea id="sentence-input" placeholder="输入英文句子，例如：The quick brown fox jumps over the lazy dog."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="translation-input">中文翻译（可选，留空将自动翻译）：</label>
+                            <textarea id="translation-input" placeholder="留空将自动获取翻译，或手动输入中文翻译"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="words-input">单词释义（JSON格式）：</label>
+                            <textarea id="words-input" placeholder='{"The": "这，那", "quick": "快速的", "brown": "棕色的", "fox": "狐狸", "jumps": "跳跃", "over": "越过", "lazy": "懒惰的", "dog": "狗"}'></textarea>
+                            <small class="hint">格式：{"单词": "释义", "单词2": "释义2"}</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancel-btn">取消</button>
+                        <button class="btn btn-primary" id="save-btn">保存</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="manage-modal" id="manage-modal">
+                <div class="manage-modal-overlay" id="manage-overlay"></div>
+                <div class="manage-modal-content">
+                    <div class="manage-header">
+                        <h2>句子管理</h2>
+                        <div class="manage-header-actions">
+                            <button class="btn btn-secondary btn-small" id="export-btn">导出</button>
+                            <button class="btn btn-secondary btn-small" id="import-batch-btn">批量导入</button>
+                            <button class="btn btn-primary btn-small" id="add-sentence-btn">添加句子</button>
+                            <button class="btn btn-danger btn-small" id="clear-all-btn">清空所有</button>
+                            <button class="close-btn" id="close-manage-modal">&times;</button>
+                        </div>
+                    </div>
+                    <div class="manage-body">
+                        <div class="sentence-list" id="sentence-list">
+                            <div class="empty-state" id="empty-state">
+                                <p>还没有句子，点击"添加句子"开始吧！</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="edit-modal" id="edit-modal">
+                <div class="edit-modal-overlay" id="edit-overlay"></div>
+                <div class="edit-modal-content">
+                    <div class="edit-header">
+                        <h2 id="edit-title">编辑句子</h2>
+                        <button class="close-btn" id="close-edit-modal">&times;</button>
+                    </div>
+                    <div class="edit-body">
+                        <div class="form-group">
+                            <label for="edit-sentence-input">英文句子：</label>
+                            <textarea id="edit-sentence-input" placeholder="输入英文句子"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-translation-input">中文翻译（可选，留空将自动翻译）：</label>
+                            <textarea id="edit-translation-input" placeholder="留空将自动获取翻译，或手动输入中文翻译"></textarea>
+                        </div>
+                    </div>
+                    <div class="edit-footer">
+                        <button class="btn btn-secondary" id="cancel-edit-btn">取消</button>
+                        <button class="btn btn-primary" id="save-edit-btn">保存</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="import-batch-modal" id="import-batch-modal">
+                <div class="import-batch-overlay" id="import-batch-overlay"></div>
+                <div class="import-batch-content">
+                    <div class="import-batch-header">
+                        <h2>批量导入</h2>
+                        <button class="close-btn" id="close-import-batch-modal">&times;</button>
+                    </div>
+                    <div class="import-batch-body">
+                        <div class="form-group">
+                            <label for="batch-json-input">JSON数组格式：</label>
+                            <textarea id="batch-json-input" placeholder='[{"sentence": "Hello world", "translation": "你好世界", "date": "2026-01-28"}, {"sentence": "How are you?", "translation": "你好吗？", "date": "2026-01-29"}]' style="min-height: 200px;"></textarea>
+                            <small class="hint">
+                                格式：JSON数组，每个对象包含 sentence（英文句子）、translation（中文翻译，可选）、date（日期，可选）字段
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label>JSON格式示例（点击复制）：</label>
+                            <div class="json-example-container">
+                                <pre id="json-example" class="json-example"></pre>
+                                <button class="btn btn-secondary btn-small" id="copy-example-btn">复制示例</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>或选择文件：</label>
+                            <input type="file" id="batch-file-input" accept=".json" style="display: none;">
+                            <button class="btn btn-secondary" id="select-file-btn">选择JSON文件</button>
+                            <span id="file-name" style="margin-left: 10px; color: #7f8c8d;"></span>
+                        </div>
+                    </div>
+                    <div class="import-batch-footer">
+                        <button class="btn btn-secondary" id="cancel-import-batch-btn">取消</button>
+                        <button class="btn btn-primary" id="save-import-batch-btn">导入</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

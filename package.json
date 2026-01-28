@@ -1,0 +1,21 @@
+{
+  "name": "memorize-words",
+  "version": "1.0.0",
+  "description": "句子驱动的背单词网站 - 简约手写风格",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server . -p 8080 -a 0.0.0.0 -o",
+    "dev": "npx http-server . -p 8080 -a 0.0.0.0 -o",
+    "deploy": "gh-pages -d ."
+  },
+  "devDependencies": {
+    "gh-pages": "^6.1.0"
+  },
+  "keywords": [
+    "背单词",
+    "英语学习",
+    "句子学习"
+  ],
+  "author": "",
+  "license": "MIT"
+}
