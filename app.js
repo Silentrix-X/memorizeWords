@@ -15,7 +15,26 @@ const saveBtn = document.getElementById('save-btn');
 const sentenceInput = document.getElementById('sentence-input');
 const translationInput = document.getElementById('translation-input');
 const wordsInput = document.getElementById('words-input');
+const detailExplanationInput = document.getElementById('detail-explanation-input');
 const currentDateEl = document.getElementById('current-date');
+
+// 统计与已记忆
+const statsBar = document.getElementById('stats-bar');
+const statSentences = document.getElementById('stat-sentences');
+const statWords = document.getElementById('stat-words');
+const statMemorizedSentences = document.getElementById('stat-memorized-sentences');
+const statMemorizedWords = document.getElementById('stat-memorized-words');
+const memorizedBtn = document.getElementById('memorized-btn');
+const memorizedBtnText = document.getElementById('memorized-btn-text');
+
+// 详细解释相关
+const detailExplanationSection = document.getElementById('detail-explanation-section');
+const detailToggleBtn = document.getElementById('detail-toggle-btn');
+const detailExplanationContent = document.getElementById('detail-explanation-content');
+const detailCoreInfo = document.getElementById('detail-core-info');
+const detailPartAnalysis = document.getElementById('detail-part-analysis');
+const detailGrammarPoints = document.getElementById('detail-grammar-points');
+const detailSynonyms = document.getElementById('detail-synonyms');
 
 // 管理相关元素
 const manageBtn = document.getElementById('manage-btn');
@@ -23,6 +42,7 @@ const manageModal = document.getElementById('manage-modal');
 const manageOverlay = document.getElementById('manage-overlay');
 const closeManageModalBtn = document.getElementById('close-manage-modal');
 const addSentenceBtn = document.getElementById('add-sentence-btn');
+const promptBtn = document.getElementById('prompt-btn');
 const exportBtn = document.getElementById('export-btn');
 const importBatchBtn = document.getElementById('import-batch-btn');
 const clearAllBtn = document.getElementById('clear-all-btn');
@@ -37,6 +57,7 @@ const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const saveEditBtn = document.getElementById('save-edit-btn');
 const editSentenceInput = document.getElementById('edit-sentence-input');
 const editTranslationInput = document.getElementById('edit-translation-input');
+const editDetailInput = document.getElementById('edit-detail-input');
 const editTitle = document.getElementById('edit-title');
 let editingSentenceId = null;
 
@@ -58,18 +79,54 @@ async function init() {
     loadSentences();
     updateDate();
     await displayCurrentSentence();
+    updateStatsDisplay();
     setupEventListeners();
 }
 
 // 设置事件监听
 function setupEventListeners() {
-    importBtn.addEventListener('click', () => {
-        importModal.classList.add('show');
-        clearForm();
-    });
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            importModal.classList.add('show');
+            clearForm();
+        });
+    }
 
     closeModalBtn.addEventListener('click', closeModal);
     cancelBtn.addEventListener('click', closeModal);
+
+    // 详细解释折叠
+    if (detailToggleBtn && detailExplanationContent) {
+        detailToggleBtn.addEventListener('click', () => {
+            detailExplanationContent.classList.toggle('show');
+            const icon = detailToggleBtn.querySelector('.toggle-icon');
+            const textSpan = detailToggleBtn.querySelector('.toggle-text');
+            if (detailExplanationContent.classList.contains('show')) {
+                icon.textContent = '▲';
+                textSpan.textContent = '收起解释';
+            } else {
+                icon.textContent = '▼';
+                textSpan.textContent = '详细解释';
+            }
+        });
+    }
+
+    // 数据统计：点击展开/收起
+    const statsTrigger = document.getElementById('stats-trigger');
+    if (statsTrigger && statsBar) {
+        statsTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            statsBar.classList.toggle('open');
+            statsTrigger.setAttribute('aria-expanded', statsBar.classList.contains('open'));
+        });
+    }
+    document.addEventListener('click', () => {
+        if (statsBar) statsBar.classList.remove('open');
+        if (statsTrigger) statsTrigger.setAttribute('aria-expanded', 'false');
+    });
+    if (statsBar) {
+        statsBar.addEventListener('click', (e) => e.stopPropagation());
+    }
 
     // 管理功能事件
     manageBtn.addEventListener('click', () => {
@@ -87,6 +144,7 @@ function setupEventListeners() {
 
     // 导出功能
     exportBtn.addEventListener('click', exportSentences);
+    promptBtn.addEventListener('click', copyPromptToClipboard);
 
     // 清空所有句子
     clearAllBtn.addEventListener('click', clearAllSentences);
@@ -146,6 +204,19 @@ function setupEventListeners() {
             await displayCurrentSentence();
         }
     });
+
+    // 已记忆按钮：切换当前句子的已记忆状态
+    if (memorizedBtn) {
+        memorizedBtn.addEventListener('click', () => {
+            if (sentences.length === 0) return;
+            const s = sentences[currentIndex];
+            if (!s) return;
+            s.memorized = !s.memorized;
+            saveSentences();
+            updateMemorizedButtonState();
+            updateStatsDisplay();
+        });
+    }
 
     // 点击模态框外部关闭
     importModal.addEventListener('click', (e) => {
@@ -517,6 +588,59 @@ async function fetchTranslation(text) {
     }
 }
 
+// 从句子文本中提取去重后的单词（小写）
+function extractUniqueWords(sentenceText) {
+    if (!sentenceText || typeof sentenceText !== 'string') return new Set();
+    const words = (sentenceText.toLowerCase().match(/\b[a-z]+\b/g) || []);
+    return new Set(words);
+}
+
+// 统计：全部句子的去重单词数
+function getTotalUniqueWords() {
+    const set = new Set();
+    sentences.forEach(s => {
+        extractUniqueWords(s.sentence).forEach(w => set.add(w));
+    });
+    return set.size;
+}
+
+// 统计：已记忆句子的去重单词数（多句重复单词只算一次）
+function getMemorizedUniqueWords() {
+    const set = new Set();
+    sentences.forEach(s => {
+        if (s.memorized) extractUniqueWords(s.sentence).forEach(w => set.add(w));
+    });
+    return set.size;
+}
+
+// 统计：已记忆句子数量
+function getMemorizedSentenceCount() {
+    return sentences.filter(s => s.memorized).length;
+}
+
+// 更新统计展示
+function updateStatsDisplay() {
+    if (!statSentences) return;
+    statSentences.textContent = sentences.length;
+    statWords.textContent = getTotalUniqueWords();
+    statMemorizedSentences.textContent = getMemorizedSentenceCount();
+    statMemorizedWords.textContent = getMemorizedUniqueWords();
+}
+
+// 更新已记忆按钮状态
+function updateMemorizedButtonState() {
+    if (!memorizedBtn || !memorizedBtnText) return;
+    if (sentences.length === 0) {
+        memorizedBtn.style.display = 'none';
+        return;
+    }
+    memorizedBtn.style.display = 'inline-flex';
+    const s = sentences[currentIndex];
+    const isMemorized = !!(s && s.memorized);
+    memorizedBtn.classList.toggle('active', isMemorized);
+    memorizedBtnText.textContent = isMemorized ? '已记忆 ✓' : '已记忆';
+}
+
 // 更新日期显示
 function updateDate() {
     const today = new Date();
@@ -532,10 +656,12 @@ function updateDate() {
 // 显示当前句子
 async function displayCurrentSentence() {
     if (sentences.length === 0) {
-        sentenceTextEl.innerHTML = '<span class="word-placeholder">点击导入按钮添加今日句子</span>';
+        sentenceTextEl.innerHTML = '<span class="word-placeholder">暂无句子，请点击右上角「管理句子」添加</span>';
         translationTextEl.innerHTML = '<span class="word-placeholder">翻译将显示在这里</span>';
         prevBtn.disabled = true;
         nextBtn.disabled = true;
+        updateMemorizedButtonState();
+        updateStatsDisplay();
         return;
     }
 
@@ -573,6 +699,53 @@ async function displayCurrentSentence() {
     // 更新按钮状态
     prevBtn.disabled = currentIndex === 0;
     nextBtn.disabled = currentIndex === sentences.length - 1;
+
+    updateMemorizedButtonState();
+    updateStatsDisplay();
+
+    // 显示/隐藏详细解释
+    if (detailExplanationSection && detailExplanationContent && detailToggleBtn) {
+        const detail = sentence.detailExplanation;
+        if (detail && (detail.coreInfo?.meaning || detail.coreInfo?.structure || (detail.partAnalysis && detail.partAnalysis.length) || (detail.grammarPoints && detail.grammarPoints.length) || (detail.synonyms && detail.synonyms.length))) {
+            detailExplanationSection.style.display = 'block';
+            detailExplanationContent.classList.remove('show');
+            detailToggleBtn.querySelector('.toggle-text').textContent = '详细解释';
+            detailToggleBtn.querySelector('.toggle-icon').textContent = '▼';
+
+            let coreHtml = '';
+            if (detail.coreInfo?.meaning) {
+                coreHtml += `<div class="detail-block"><strong>句意</strong><p>${escapeHtml(detail.coreInfo.meaning)}</p></div>`;
+            }
+            if (detail.coreInfo?.structure) {
+                coreHtml += `<div class="detail-block"><strong>句式</strong><p>${escapeHtml(detail.coreInfo.structure)}</p></div>`;
+            }
+            detailCoreInfo.innerHTML = coreHtml;
+
+            if (detail.partAnalysis && detail.partAnalysis.length) {
+                detailPartAnalysis.innerHTML = '<div class="detail-block"><strong>逐部分解析</strong>' +
+                    detail.partAnalysis.map(p => `<div class="part-item"><span class="part-label">${escapeHtml(p.part)}</span>：${escapeHtml(p.explanation)}</div>`).join('') + '</div>';
+            } else { detailPartAnalysis.innerHTML = ''; }
+
+            if (detail.grammarPoints && detail.grammarPoints.length) {
+                detailGrammarPoints.innerHTML = '<div class="detail-block"><strong>语法要点</strong><ul>' +
+                    detail.grammarPoints.map(g => `<li>${escapeHtml(g)}</li>`).join('') + '</ul></div>';
+            } else { detailGrammarPoints.innerHTML = ''; }
+
+            if (detail.synonyms && detail.synonyms.length) {
+                detailSynonyms.innerHTML = '<div class="detail-block"><strong>同义替换</strong><ul>' +
+                    detail.synonyms.map(s => `<li>${escapeHtml(s)}</li>`).join('') + '</ul></div>';
+            } else { detailSynonyms.innerHTML = ''; }
+        } else {
+            detailExplanationSection.style.display = 'none';
+        }
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 // 显示单词提示
@@ -625,11 +798,82 @@ function closeModal() {
     clearForm();
 }
 
+// 将 JSON 格式的详细解释规范化为统一结构
+function normalizeDetailExplanation(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+    const result = { coreInfo: {}, partAnalysis: [], grammarPoints: [], synonyms: [] };
+
+    if (obj.coreInfo && typeof obj.coreInfo === 'object') {
+        if (obj.coreInfo.meaning) result.coreInfo.meaning = String(obj.coreInfo.meaning);
+        if (obj.coreInfo.structure) result.coreInfo.structure = String(obj.coreInfo.structure);
+    }
+    if (Array.isArray(obj.partAnalysis)) {
+        result.partAnalysis = obj.partAnalysis
+            .filter(p => p && (p.part != null || p.explanation != null))
+            .map(p => ({ part: String(p.part || ''), explanation: String(p.explanation || '') }));
+    }
+    if (Array.isArray(obj.grammarPoints)) {
+        result.grammarPoints = obj.grammarPoints.map(g => String(g)).filter(Boolean);
+    }
+    if (Array.isArray(obj.synonyms)) {
+        result.synonyms = obj.synonyms.map(s => String(s)).filter(Boolean);
+    }
+
+    const hasAny = result.coreInfo.meaning || result.coreInfo.structure ||
+        result.partAnalysis.length || result.grammarPoints.length || result.synonyms.length;
+    return hasAny ? result : null;
+}
+
+// 解析详细解释：优先 JSON，否则按文本格式解析
+function parseDetailExplanation(text) {
+    if (!text || !text.trim()) return null;
+    const raw = text.trim();
+
+    // 优先尝试 JSON
+    if (raw.startsWith('{')) {
+        try {
+            const obj = JSON.parse(raw);
+            return normalizeDetailExplanation(obj);
+        } catch (e) {
+            console.warn('详细解释 JSON 解析失败，尝试文本格式', e);
+        }
+    }
+
+    // 文本格式解析
+    const result = { coreInfo: {}, partAnalysis: [], grammarPoints: [], synonyms: [] };
+    const meaningMatch = raw.match(/句意[：:]\s*([^\n]+)/);
+    if (meaningMatch) result.coreInfo.meaning = meaningMatch[1].trim();
+    const structureMatch = raw.match(/句式[：:]\s*([^\n]+)/);
+    if (structureMatch) result.coreInfo.structure = structureMatch[1].trim();
+
+    const partSectionMatch = raw.match(/逐部分解析\s*[\n\r]+([\s\S]*?)(?=语法要点|同义替换|$)/i);
+    if (partSectionMatch) {
+        partSectionMatch[1].trim().split(/\n/).forEach(line => {
+            const m = line.match(/^(.+?)[：:]\s*(.+)$/);
+            if (m) result.partAnalysis.push({ part: m[1].trim(), explanation: m[2].trim() });
+        });
+    }
+    const grammarMatch = raw.match(/语法要点\s*[\n\r]+([\s\S]*?)(?=同义替换|$)/i);
+    if (grammarMatch) {
+        const points = grammarMatch[1].trim().split(/\n|(?<=[。！])/).map(s => s.trim()).filter(Boolean);
+        result.grammarPoints = points;
+    }
+    const synonymMatch = raw.match(/同义替换[^\n]*[\n\r]+([\s\S]*)$/i);
+    if (synonymMatch) {
+        result.synonyms = synonymMatch[1].trim().split(/\n/).map(s => s.trim()).filter(Boolean);
+    }
+
+    const hasAny = result.coreInfo.meaning || result.coreInfo.structure ||
+        result.partAnalysis.length || result.grammarPoints.length || result.synonyms.length;
+    return hasAny ? result : null;
+}
+
 // 清空表单
 function clearForm() {
     sentenceInput.value = '';
     translationInput.value = '';
     wordsInput.value = '';
+    if (detailExplanationInput) detailExplanationInput.value = '';
 }
 
 // 保存句子
@@ -674,12 +918,17 @@ async function saveSentence() {
         });
     }
 
+    const detailText = detailExplanationInput ? detailExplanationInput.value.trim() : '';
+    const detailExplanation = parseDetailExplanation(detailText);
+
     const newSentence = {
         id: Date.now(),
         sentence: sentence,
         translation: translation,
         words: words,
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        detailExplanation: detailExplanation || undefined,
+        memorized: false
     };
 
     sentences.push(newSentence);
@@ -826,7 +1075,14 @@ function editSentence(id) {
     editTitle.textContent = '编辑句子';
     editSentenceInput.value = sentence.sentence;
     editTranslationInput.value = sentence.translation || '';
+    editDetailInput.value = serializeDetailExplanation(sentence.detailExplanation) || '';
     editModal.classList.add('show');
+}
+
+// 将详细解释对象序列化为 JSON（便于编辑与 AI 生成）
+function serializeDetailExplanation(detail) {
+    if (!detail) return '';
+    return JSON.stringify(detail, null, 2);
 }
 
 // 保存编辑
@@ -855,6 +1111,8 @@ async function saveEditSentence() {
     const sentenceIndex = sentences.findIndex(s => s.id === editingSentenceId);
     if (sentenceIndex === -1) return;
 
+    const detailText = editDetailInput ? editDetailInput.value.trim() : '';
+    sentences[sentenceIndex].detailExplanation = parseDetailExplanation(detailText) || undefined;
     sentences[sentenceIndex].sentence = sentence;
     sentences[sentenceIndex].translation = translation;
 
@@ -874,6 +1132,7 @@ function closeEditModal() {
     editingSentenceId = null;
     editSentenceInput.value = '';
     editTranslationInput.value = '';
+    if (editDetailInput) editDetailInput.value = '';
 }
 
 // 删除句子
@@ -921,6 +1180,85 @@ function viewSentence(id) {
 }
 
 // 导出句子
+// 生成并复制提示词（用于让 AI 生成新句子，避免重复）
+function buildPromptText() {
+    const count = 10;
+    const existingList = sentences.length === 0
+        ? '（当前无已有句子）'
+        : sentences.map((s, i) => `${i + 1}. ${s.sentence.trim()}`).join('\n');
+
+    return `请为「句子背单词」生成一批新的英文句子，用于批量导入。
+
+【要求】
+- 数量：${count} 条（可修改数字）
+- 难度：初中/高中/四级/六级/考研（请指定或修改）
+- 不要与下方「已有句子」重复。
+
+【已有句子】（请勿重复生成）
+${existingList}
+
+【JSON 格式】
+输出必须为 JSON 数组，每个元素包含：
+- sentence（必填）：英文句子
+- translation（必填）：中文翻译
+- date（必填）：日期 YYYY-MM-DD
+- words（必填）：{"单词": "释义"} 键值对，可为空对象 {}
+- detailExplanation（必填）：详细解释，结构如下（参考示例）：
+
+detailExplanation 结构示例：
+{
+  "coreInfo": {
+    "meaning": "这本书很好，它讲了一个有趣的故事。",
+    "structure": "并列句，由and连接两个简单句；第一个分句是主系表结构，第二个分句是主谓宾结构，it指代前一分句的this book。"
+  },
+  "partAnalysis": [
+    { "part": "This book", "explanation": "指示代词this（这个）+可数名词book（书），作第一个分句的主语，表特指的某本书。" },
+    { "part": "is good", "explanation": "系表结构作谓语，is（系动词，是）+good（形容词作表语，好的），描述book的特征。" },
+    { "part": "and", "explanation": "并列连词，连接两个独立的分句，表语义顺承。" },
+    { "part": "it", "explanation": "人称代词主格，第三人称单数，指代前一分句的this book，作第二个分句的主语。" },
+    { "part": "tells an interesting story", "explanation": "谓语短语，tell（实义动词，讲述）+an interesting story（宾语，一个有趣的故事），interesting是形容词作定语修饰story。" }
+  ],
+  "grammarPoints": [
+    "第一个分句是一般现在时的主系表结构，主语this book是第三人称单数，系动词用is；主系表结构常用来描述人或事物的性质、状态。",
+    "it在此处是代词指代，避免重复this book，这是英语表达的常用技巧，类似用法如：This pen is mine and it writes smoothly.（这支笔是我的，写起来很顺滑）。",
+    "interesting是形容词，作定语修饰名词story，形容词作定语时通常放在名词前；其同根词interested意为 \"感兴趣的\"，主语通常是人，如I am interested in the story（我对这个故事感兴趣）。"
+  ],
+  "synonyms": [
+    "This book is great and it narrates a fascinating tale.（great 是 good 的近义词；narrate 比 tell 更正式，表 \"叙述\"；fascinating 比 interesting 语气更强，tale 是 story 的同义替换词）"
+  ]
+}
+
+完整条目示例：
+[
+  {
+    "sentence": "This book is good and it tells an interesting story.",
+    "translation": "这本书很好，它讲了一个有趣的故事。",
+    "date": "2026-01-28",
+    "words": { "This": "这，这个", "book": "书", "good": "好的", "interesting": "有趣的", "story": "故事" },
+    "detailExplanation": { "coreInfo": { "meaning": "这本书很好，它讲了一个有趣的故事。", "structure": "并列句，由and连接两个简单句；第一个分句是主系表结构，第二个分句是主谓宾结构，it指代前一分句的this book。" }, "partAnalysis": [ { "part": "This book", "explanation": "指示代词this+可数名词book，作第一个分句的主语。" }, { "part": "is good", "explanation": "系表结构作谓语。" }, { "part": "and", "explanation": "并列连词，连接两个分句。" }, { "part": "it", "explanation": "人称代词，指代this book。" }, { "part": "tells an interesting story", "explanation": "谓语短语，讲述一个有趣的故事。" } ], "grammarPoints": [ "主系表结构；it指代前文。" ], "synonyms": [ "This book is great and it narrates a fascinating tale." ] }
+  }
+]`;
+}
+
+function copyPromptToClipboard() {
+    const text = buildPromptText();
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = promptBtn.textContent;
+        promptBtn.textContent = '已复制！';
+        promptBtn.style.background = '#27ae60';
+        promptBtn.style.borderColor = '#27ae60';
+        promptBtn.style.color = '#fff';
+        setTimeout(() => {
+            promptBtn.textContent = orig;
+            promptBtn.style.background = '';
+            promptBtn.style.borderColor = '';
+            promptBtn.style.color = '';
+        }, 1500);
+    }).catch(() => {
+        alert('复制失败，请手动选择下方内容复制。');
+    });
+}
+
 function exportSentences() {
     if (sentences.length === 0) {
         alert('没有句子可以导出！');
@@ -932,7 +1270,9 @@ function exportSentences() {
         sentence: s.sentence,
         translation: s.translation || '',
         date: s.date || new Date().toISOString().split('T')[0],
-        words: s.words || {}
+        words: s.words || {},
+        detailExplanation: s.detailExplanation || undefined,
+        memorized: !!s.memorized
     }));
 
     // 创建JSON字符串
@@ -1010,11 +1350,13 @@ async function importBatchSentences() {
             }
 
             const newSentence = {
-                id: item.id || Date.now() + successCount + Math.random(), // 使用导入的ID或生成新ID
+                id: item.id || Date.now() + successCount + Math.random(),
                 sentence: item.sentence.trim(),
                 translation: translation.trim(),
                 date: item.date || new Date().toISOString().split('T')[0],
-                words: item.words || {}
+                words: item.words || {},
+                detailExplanation: normalizeDetailExplanation(item.detailExplanation) || (item.detailExplanationText ? parseDetailExplanation(item.detailExplanationText) : undefined),
+                memorized: item.memorized === true
             };
 
             sentences.push(newSentence);
@@ -1075,29 +1417,35 @@ function clearAllSentences() {
 function loadJsonExample() {
     const example = [
         {
+            "sentence": "I get up early and have a cup of coffee every morning.",
+            "translation": "我每天早上都早起，然后喝一杯咖啡。",
+            "date": "2026-01-28",
+            "detailExplanation": {
+                "coreInfo": {
+                    "meaning": "我每天早上都早起，然后喝一杯咖啡。",
+                    "structure": "简单句，由并列谓语get up early和have a cup of coffee构成，共用主语I，时间状语every morning表习惯性动作。"
+                },
+                "partAnalysis": [
+                    { "part": "I", "explanation": "主格人称代词，作主语，意为 \"我\"。" },
+                    { "part": "get up early", "explanation": "谓语短语，get up（固定搭配，起床）+early（副词，修饰 get up，早地），意为 \"早起\"。" },
+                    { "part": "and", "explanation": "并列连词，连接两个并列的谓语动作，表顺承。" },
+                    { "part": "have a cup of coffee", "explanation": "谓语短语，have（实义动词，喝）+a cup of coffee（宾语，一杯咖啡），a cup of是不可数名词coffee的量化表达。" },
+                    { "part": "every morning", "explanation": "时间状语，every（每一）+morning（早上），表 \"每天早上\"，是一般现在时的标志性时间状语。" }
+                ],
+                "grammarPoints": [
+                    "句子时态为一般现在时，因主语是第一人称I，谓语动词均用原形（get/have），表习惯性、经常性的动作。",
+                    "coffee为不可数名词，表 \"一杯咖啡\" 需用a cup of coffee，表多杯则变 cup 为复数（two cups of coffee）。",
+                    "early此处是副词，修饰动词短语；其形容词形式也为 early（an early morning 一个清晨），属于 \"形副同形\" 词。"
+                ],
+                "synonyms": [
+                    "I get up bright and early and drink a cup of coffee each morning.（bright and early 是口语化表达，表 \"大清早\"，更生动）"
+                ]
+            }
+        },
+        {
             "sentence": "The quick brown fox jumps over the lazy dog.",
             "translation": "敏捷的棕色狐狸跳过懒惰的狗。",
-            "date": "2026-01-28"
-        },
-        {
-            "sentence": "She goes to the park with her friend every weekend.",
-            "translation": "她每个周末都和朋友一起去公园。",
             "date": "2026-01-29"
-        },
-        {
-            "sentence": "Learning a new language opens up new opportunities.",
-            "translation": "学习一门新语言会带来新的机会。",
-            "date": "2026-01-30"
-        },
-        {
-            "sentence": "Practice makes perfect.",
-            "translation": "熟能生巧。",
-            "date": "2026-01-31"
-        },
-        {
-            "sentence": "The early bird catches the worm.",
-            "translation": "早起的鸟儿有虫吃。",
-            "date": "2026-02-01"
         }
     ];
     

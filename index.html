@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>句子背单词 - 简约手写风格</title>
+    <title>句子背单词</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -14,20 +14,47 @@
                     <h1 class="title">句子背单词</h1>
                     <p class="subtitle">每天一句，轻松记忆</p>
                 </div>
-                <button class="btn btn-manage" id="manage-btn">管理句子</button>
+                <div class="header-right">
+                    <div class="header-stats" id="stats-bar">
+                        <button type="button" class="header-stats-trigger" id="stats-trigger" aria-expanded="false">
+                            <span class="header-stats-title">数据统计</span>
+                            <span class="header-stats-icon">▼</span>
+                        </button>
+                        <div class="header-stats-dropdown" id="stats-dropdown">
+                            <div class="header-stats-items">
+                                <span class="stat-inline"><em id="stat-sentences">0</em> 句子</span>
+                                <span class="stat-inline"><em id="stat-words">0</em> 单词</span>
+                                <span class="stat-inline stat-memorized"><em id="stat-memorized-sentences">0</em> 已记忆句子</span>
+                                <span class="stat-inline stat-memorized"><em id="stat-memorized-words">0</em> 已记忆单词</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-manage" id="manage-btn">管理句子</button>
+                </div>
             </div>
         </header>
 
         <main class="main-content">
-            <div class="date-display">
-                <span id="current-date"></span>
+            <div class="top-bar">
+                <div class="date-display" id="date-display-wrap">
+                    <span id="current-date"></span>
+                </div>
+                <div class="top-bar-actions">
+                    <button type="button" class="btn-memorized" id="memorized-btn" title="标记当前句子为已记忆">
+                        <span id="memorized-btn-text">已记忆</span>
+                    </button>
+                    <div class="sentence-nav">
+                        <button class="btn btn-secondary btn-nav" id="prev-btn">上一句</button>
+                        <button class="btn btn-secondary btn-nav" id="next-btn">下一句</button>
+                    </div>
+                </div>
             </div>
 
             <div class="sentence-card">
                 <div class="sentence-section">
                     <h2 class="section-title">今日句子</h2>
                     <div class="sentence-text" id="sentence-text">
-                        <span class="word-placeholder">点击导入按钮添加今日句子</span>
+                        <span class="word-placeholder">暂无句子，请点击右上角「管理句子」添加</span>
                     </div>
                 </div>
 
@@ -35,6 +62,19 @@
                     <h2 class="section-title">翻译</h2>
                     <div class="translation-text" id="translation-text">
                         <span class="word-placeholder">翻译将显示在这里</span>
+                    </div>
+                </div>
+
+                <div class="detail-explanation-section" id="detail-explanation-section">
+                    <button type="button" class="btn-detail-toggle" id="detail-toggle-btn">
+                        <span class="toggle-text">详细解释</span>
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    <div class="detail-explanation-content" id="detail-explanation-content">
+                        <div id="detail-core-info"></div>
+                        <div id="detail-part-analysis"></div>
+                        <div id="detail-grammar-points"></div>
+                        <div id="detail-synonyms"></div>
                     </div>
                 </div>
 
@@ -64,12 +104,6 @@
                 </div>
             </div>
 
-            <div class="actions">
-                <button class="btn btn-primary" id="import-btn">导入今日句子</button>
-                <button class="btn btn-secondary" id="prev-btn">上一句</button>
-                <button class="btn btn-secondary" id="next-btn">下一句</button>
-            </div>
-
             <div class="import-modal" id="import-modal">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -86,9 +120,14 @@
                             <textarea id="translation-input" placeholder="留空将自动获取翻译，或手动输入中文翻译"></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="words-input">单词释义（JSON格式）：</label>
-                            <textarea id="words-input" placeholder='{"The": "这，那", "quick": "快速的", "brown": "棕色的", "fox": "狐狸", "jumps": "跳跃", "over": "越过", "lazy": "懒惰的", "dog": "狗"}'></textarea>
+                            <label for="words-input">单词释义（JSON格式，可选）：</label>
+                            <textarea id="words-input" placeholder='{"The": "这，那", "quick": "快速的"}'></textarea>
                             <small class="hint">格式：{"单词": "释义", "单词2": "释义2"}</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="detail-explanation-input">详细解释（JSON 或文本，可选）：</label>
+                            <textarea id="detail-explanation-input" placeholder='{"coreInfo":{"meaning":"句意","structure":"句式"},"partAnalysis":[{"part":"I","explanation":"主格人称代词..."}],"grammarPoints":["要点1"],"synonyms":["同义句"]}'></textarea>
+                            <small class="hint">推荐 JSON：coreInfo（meaning/structure）、partAnalysis（part+explanation）、grammarPoints、synonyms；也支持原文本格式</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -104,6 +143,7 @@
                     <div class="manage-header">
                         <h2>句子管理</h2>
                         <div class="manage-header-actions">
+                            <button class="btn btn-secondary btn-small" id="prompt-btn" title="一键复制生成提示词">提示词</button>
                             <button class="btn btn-secondary btn-small" id="export-btn">导出</button>
                             <button class="btn btn-secondary btn-small" id="import-batch-btn">批量导入</button>
                             <button class="btn btn-primary btn-small" id="add-sentence-btn">添加句子</button>
@@ -136,6 +176,10 @@
                         <div class="form-group">
                             <label for="edit-translation-input">中文翻译（可选，留空将自动翻译）：</label>
                             <textarea id="edit-translation-input" placeholder="留空将自动获取翻译，或手动输入中文翻译"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-detail-input">详细解释（JSON 或文本，可选）：</label>
+                            <textarea id="edit-detail-input" placeholder='{"coreInfo":{"meaning":"句意","structure":"句式"},"partAnalysis":[],"grammarPoints":[],"synonyms":[]}'></textarea>
                         </div>
                     </div>
                     <div class="edit-footer">
